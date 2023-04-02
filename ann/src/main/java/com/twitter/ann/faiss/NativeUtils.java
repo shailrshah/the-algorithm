@@ -5,9 +5,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
-import java.util.Objects; 
+import java.util.Objects;
 
 public final class NativeUtils {
 
@@ -21,32 +22,14 @@ public final class NativeUtils {
 
   private static File unpackLibraryFromJarInternal(String path) throws IOException {
     Objects.requireNonNull(path, "The path cannot be null.");
-    if (!path.startsWith("/")) {
-        throw new IllegalArgumentException("The path has to be absolute (start with '/').");
-    }
-
-    String[] parts = path.split("/");
-    String filename = (parts.length > 1) ? parts[parts.length - 1] : null;
-
-    if (filename == null || filename.length() < MIN_PREFIX_LENGTH) {
-        throw new IllegalArgumentException("The filename has to be at least 3 characters long.");
-    }
-
-    File temp = Files.createTempFile(NATIVE_FOLDER_PATH_PREFIX, filename).toFile();
-    temp.deleteOnExit();
-
-    try (InputStream is = NativeUtils.class.getResourceAsStream(path)) {
-        Files.copy(is, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
-    } catch (IOException e) {
-        temp.delete();
-        throw e;
-    } catch (NullPointerException e) {
-        temp.delete();
-        throw new FileNotFoundException("File " + path + " was not found inside JAR.");
-    }
-
-    return temp;
-}
+    
+    File tempFile = Files.createTempFile(NATIVE_FOLDER_PATH_PREFIX, new File(path).getName()).toFile();
+    tempFile.deleteOnExit();
+    
+    Files.copy(Paths.get(path), Paths.get(tempFile.getPath()));
+    
+    return tempFile;
+  }
 
   /**
    * Unpack library from JAR into temporary path
