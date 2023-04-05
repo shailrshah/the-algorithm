@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Objects; 
@@ -19,52 +20,32 @@ public final class NativeUtils {
   private NativeUtils() {
   }
 
-  private static File unpackLibraryFromJarInternal(String path) throws IOException {
-    Objects.requireNonNull(path, "The path cannot be null.");
-    if (!path.startsWith("/")) {
-        throw new IllegalArgumentException("The path has to be absolute (start with '/').");
-    }
-
-    String[] parts = path.split("/");
-    String filename = (parts.length > 1) ? parts[parts.length - 1] : null;
-
-    if (filename == null || filename.length() < MIN_PREFIX_LENGTH) {
-        throw new IllegalArgumentException("The filename has to be at least 3 characters long.");
-    }
-
-    File temp = Files.createTempFile(NATIVE_FOLDER_PATH_PREFIX, filename).toFile();
-    temp.deleteOnExit();
-
-    try (InputStream is = NativeUtils.class.getResourceAsStream(path)) {
-        Files.copy(is, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
-    } catch (IOException e) {
-        temp.delete();
-        throw e;
-    } catch (NullPointerException e) {
-        temp.delete();
-        throw new FileNotFoundException("File " + path + " was not found inside JAR.");
-    }
-
-    return temp;
-}
-
   /**
-   * Unpack library from JAR into temporary path
-   *
-   * @param path The path of file inside JAR as absolute path (beginning with
-   *             '/'), e.g. /package/File.ext
-   * @throws IOException              If temporary file creation or read/write
-   *                                  operation fails
-   * @throws IllegalArgumentException If source file (param path) does not exist
-   * @throws IllegalArgumentException If the path is not absolute or if the
-   *                                  filename is shorter than three characters
-   *                                  (restriction of
-   *                                  {@link File#createTempFile(java.lang.String, java.lang.String)}).
-   * @throws FileNotFoundException    If the file could not be found inside the
-   *                                  JAR.
-   */
-  public static void unpackLibraryFromJar(String path) throws IOException {
-    unpackLibraryFromJarInternal(path);
+  * Copy a file at the given path into a temporary file 
+  * and return the temporary file's path 
+  *
+  * @param path The path of file inside JAR as absolute path (beginning with
+  *             '/'), e.g. /package/File.ext
+  * @returns the temporary file's path after copying the contents from the given path
+  * @throws IOException              If temporary file creation or read/write
+  *                                  operation fails
+  * @throws IllegalArgumentException If source file (param path) does not exist
+  * @throws IllegalArgumentException If the path is not absolute or if the
+  *                                  filename is shorter than three characters
+  *                                  (restriction of
+  *                                  {@link File#createTempFile(java.lang.String, java.lang.String)}).
+  * @throws FileNotFoundException    If the file could not be found inside the
+  *                                  JAR.
+  */
+  private static File copyToTempFile(String path) throws IOException {
+    Objects.requireNonNull(path, "The path cannot be null.");
+    
+    File tempFile = Files.createTempFile(NATIVE_FOLDER_PATH_PREFIX, new File(path).getName()).toFile();
+    tempFile.deleteOnExit();
+    
+    Files.copy(Paths.get(path), Paths.get(tempFile.getPath()));
+    
+    return tempFile;
   }
 
   /**
@@ -89,7 +70,7 @@ public final class NativeUtils {
    *                                  JAR.
    */
   public static void loadLibraryFromJar(String path) throws IOException {
-    File temp = unpackLibraryFromJarInternal(path);
+    File temp = copyToTempFile(path);
 
     try (InputStream is = NativeUtils.class.getResourceAsStream(path)) {
       Files.copy(is, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
